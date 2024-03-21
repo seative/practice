@@ -48,8 +48,6 @@ include/LocalConfig.h
 test/test-main/*
 /ppt/*
 /lib/*
-/MotFrame/
-/MotMain/
 /.VSCodeCounter/
 
 # User-specific files
