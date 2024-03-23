@@ -2,7 +2,6 @@
 #include "std_weak_ptr.h"
 
 #include <iostream>
-#include <memory>
 
 int main() {
   shared_ptr<int> a(new int(1));
