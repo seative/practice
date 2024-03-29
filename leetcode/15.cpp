@@ -37,19 +37,72 @@ class Solution {
     vector<vector<int>> ans;
     std::sort(nums.begin(), nums.end());
 
-    auto upper = std::upper_bound(nums.begin(), nums.end(), 0);
-    auto lower = std::lower_bound(nums.begin(), nums.end(), 0);
+    for (size_t i = 0; i < nums.size(); ++i) {
+      size_t left = i + 1;
+      size_t right = nums.size() - 1;
 
-    while (upper != nums.end()) {
-      for (auto iter = upper + 1; iter != nums.end(); iter++) {
-        int target = -(*iter + *upper);
+      while (left < right) {
+        int result = nums[i] + nums[left] + nums[right];
+        if (result == 0) {
+          ans.push_back({nums[i], nums[left], nums[right]});
 
-        auto it = std::find(nums.begin(), lower, target);
-        if (it != lower) {
-          ans.push_back({*it, *upper, *iter});
+          while (left < right && nums[left] == nums[left + 1]) {
+            ++left;
+          }
+          while (left < right && nums[right] == nums[right - 1]) {
+            --right;
+          }
+          ++left;
+          --right;
+
+        } else if (result < 0) {
+          ++left;
+        } else {
+          --right;
+        }
+        while (i + 1 < nums.size() && nums[i] == nums[i + 1]) {
+          ++i;
         }
       }
-      upper++;
     }
+    return ans;
+  }
+};
+
+// 唯一的不同在于对i的去重处理
+class Solutio2 {
+ public:
+  vector<vector<int>> threeSum(vector<int>& nums) {
+    vector<vector<int>> ans;
+    std::sort(nums.begin(), nums.end());
+
+    for (size_t i = 0; i < nums.size(); ++i) {
+      size_t left = i + 1;
+      size_t right = nums.size() - 1;
+
+      if (i > 0 && nums[i] == nums[i - 1]) continue;
+
+      while (left < right) {
+        int result = nums[i] + nums[left] + nums[right];
+        if (result == 0) {
+          ans.push_back({nums[i], nums[left], nums[right]});
+
+          while (left < right && nums[left] == nums[left + 1]) {
+            ++left;
+          }
+          while (left < right && nums[right] == nums[right - 1]) {
+            --right;
+          }
+          ++left;
+          --right;
+
+        } else if (result < 0) {
+          ++left;
+        } else {
+          --right;
+        }
+      }
+    }
+    return ans;
   }
 };
