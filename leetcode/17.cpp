@@ -26,14 +26,69 @@ class Solution {
   vector<string> letterCombinations(string digits) {
     std::unordered_map<char, string> phoneMap{
         {'2', "abc"},  {'3', "def"},  {'4', "ghi"}, {'5', "jkl"},
-        {'6', "mnop"}, {'7', "pqrs"}, {'8', "tuv"}, {'9', "wxyz"},
+        {'6', "mno"}, {'7', "pqrs"}, {'8', "tuv"}, {'9', "wxyz"},
     };
 
     vector<string> ans;
     for (int i = 0; i < digits.size(); ++i) {
       string current = phoneMap[digits[i]];
-      for (int j = 0; j < current.size(); ++j) {
+      if (ans.empty()) {
+        for (int j = 0; j < current.size(); ++j) {
+          ans.push_back(string(1, current[j]));
+        }
+      } else {
+        ans = combineTwoString(ans, current);
       }
     }
+    return ans;
   }
+
+  vector<string> combineTwoString(vector<string>& s1,string& s2)
+  {
+    vector<string> ans;
+    for (int i = 0; i < s1.size(); ++i) {
+      for (int j = 0; j < s2.size(); ++j) {
+        ans.push_back(s1[i] + s2[j]);
+      }
+    }
+    return ans;
+  }
+};
+
+
+// 回溯解法
+class Solution2{
+  public:
+    vector<string> letterCombinations(string digits) {
+    std::unordered_map<char, string> phoneMap{
+        {'2', "abc"},  {'3', "def"},  {'4', "ghi"}, {'5', "jkl"},
+        {'6', "mno"}, {'7', "pqrs"}, {'8', "tuv"}, {'9', "wxyz"},
+    };
+
+     vector<string> combinations;
+     string combination;
+     if(digits.empty()) return combinations;
+
+     backtrack(digits,phoneMap,0,combination,combinations);
+     return combinations;
+    }
+
+      void backtrack(const string& digits,const std::unordered_map<char, string>& phoneMap,int index,string& combination,vector<string>& combinations)
+      {
+        if(index==digits.size())
+        {
+          combinations.push_back(combination);
+        }
+        else{
+
+        std::string current= phoneMap.at(digits[index]);
+
+        for(auto letter :current)
+        {
+          combination.push_back(letter);
+          backtrack(digits,phoneMap,index+1,combination,combinations);
+          combination.pop_back();
+        }
+        }
+      }
 };
