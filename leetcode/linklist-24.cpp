@@ -37,7 +37,7 @@ public:
     {
         ListNode *dummyhead = new ListNode(0, head);
         ListNode *temp = dummyhead;
-        while (temp->next != nullptr && temp->next->next && nullptr)
+        while (temp->next != nullptr && temp->next->next != nullptr)
         {
             ListNode *node1 = temp->next;
             ListNode *node2 = temp->next->next;
