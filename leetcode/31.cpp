@@ -10,6 +10,9 @@
 
 // 必须 原地 修改，只允许使用额外常数空间。
 #include <vector>
+#include <algorithm>
+#include <cmath>
+
 using namespace std;
 
 //  bad solution 
@@ -60,6 +63,6 @@ public:
             }
             swap(nums[i], nums[j]);
         }
-        reverse(nums.begin() + i + 1, nums.end());
+        std::reverse(nums.begin() + i + 1, nums.end());
     }
 };

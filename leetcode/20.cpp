@@ -44,7 +44,7 @@ class Solution {
 
 // 利用栈和哈希表
 // 暴力解法
-class Solution {
+class Solution2 {
  public:
   bool isValid(string s) {
     std::unordered_map<char, char> pairs = {
