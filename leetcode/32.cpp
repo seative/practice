@@ -2,8 +2,6 @@
 // 子串
 // 的长度。
 
- 
-
 // 示例 1：
 
 // 输入：s = "(()"
@@ -18,21 +16,21 @@
 
 // 输入：s = ""
 // 输出：0
- 
- #include <string>
- #include <vector>
- #include <unordered_map>
- #include <stack>
- #include <algorithm>
- #include <cmath>
 
- using namespace std;
+#include <algorithm>
+#include <cmath>
+#include <stack>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+using namespace std;
 
 // wrong answer
 // class Solution {
 // public:
 //     int longestValidParentheses(string s) {
-//         std::unordered_map<char,char>  parentMap={{')','('}}; 
+//         std::unordered_map<char,char>  parentMap={{')','('}};
 //         std::stack<char> parentStack;
 //         int left=0;
 //         int length=0;
@@ -66,76 +64,77 @@
 
 class Solution2 {
 public:
-    int longestValidParentheses(string s) {
-        int maxans = 0;
-        stack<int> stk;
-        stk.push(-1);
-        for (int i = 0; i < s.length(); i++) {
-            if (s[i] == '(') {
-                stk.push(i);
-            } else {
-                stk.pop();
-                if (stk.empty()) {
-                    stk.push(i);
-                } else {
-                    maxans = max(maxans, i - stk.top());
-                }
-            }
+  int longestValidParentheses(string s) {
+    int maxans = 0;
+    stack<int> stk;
+    stk.push(-1);
+    for (int i = 0; i < s.length(); i++) {
+      if (s[i] == '(') {
+        stk.push(i);
+      } else {
+        stk.pop();
+        if (stk.empty()) {
+          stk.push(i);
+        } else {
+          maxans = max(maxans, i - stk.top());
         }
-        return maxans;
+      }
     }
+    return maxans;
+  }
 };
 
-//两次遍历，第一次从左到右，第二次从右到左，通过（）数量来判断
+// 两次遍历，第一次从左到右，第二次从右到左，通过（）数量来判断
 class Solution3 {
 public:
-    int longestValidParentheses(string s) {
-        int left = 0, right = 0, maxlength = 0;
-        for (int i = 0; i < s.length(); i++) {
-            if (s[i] == '(') {
-                left++;
-            } else {
-                right++;
-            }
-            if (left == right) {
-                maxlength = max(maxlength, 2 * right);
-            } else if (right > left) {
-                left = right = 0;
-            }
-        }
+  int longestValidParentheses(string s) {
+    int left = 0, right = 0, maxlength = 0;
+    for (int i = 0; i < s.length(); i++) {
+      if (s[i] == '(') {
+        left++;
+      } else {
+        right++;
+      }
+      if (left == right) {
+        maxlength = max(maxlength, 2 * right);
+      } else if (right > left) {
         left = right = 0;
-        for (int i = (int)s.length() - 1; i >= 0; i--) {
-            if (s[i] == '(') {
-                left++;
-            } else {
-                right++;
-            }
-            if (left == right) {
-                maxlength = max(maxlength, 2 * left);
-            } else if (left > right) {
-                left = right = 0;
-            }
-        }
-        return maxlength;
+      }
     }
+    left = right = 0;
+    for (int i = (int)s.length() - 1; i >= 0; i--) {
+      if (s[i] == '(') {
+        left++;
+      } else {
+        right++;
+      }
+      if (left == right) {
+        maxlength = max(maxlength, 2 * left);
+      } else if (left > right) {
+        left = right = 0;
+      }
+    }
+    return maxlength;
+  }
 };
 
 // 动态规划问题
 class Solution4 {
 public:
-    int longestValidParentheses(string s) {
-        int maxans = 0, n = s.length();
-        vector<int> dp(n, 0);
-        for (int i = 1; i < n; i++) {
-            if (s[i] == ')') {
-                if (s[i - 1] == '(') {
-                    dp[i] = (i >= 2 ? dp[i - 2] : 0) + 2;
-                } else if (i - dp[i - 1] > 0 && s[i - dp[i - 1] - 1] == '(') {
-                    dp[i] = dp[i - 1] + ((i - dp[i - 1]) >= 2 ? dp[i - dp[i - 1] - 2] : 0) + 2;
-                }
-                maxans = max(maxans, dp[i]);
-            }
+  int longestValidParentheses(string s) {
+    int maxans = 0, n = s.length();
+    vector<int> dp(n, 0);
+    for (int i = 1; i < n; i++) {
+      if (s[i] == ')') {
+        if (s[i - 1] == '(') {
+          dp[i] = (i >= 2 ? dp[i - 2] : 0) + 2;
+        } else if (i - dp[i - 1] > 0 && s[i - dp[i - 1] - 1] == '(') {
+          dp[i] = dp[i - 1] +
+                  ((i - dp[i - 1]) >= 2 ? dp[i - dp[i - 1] - 2] : 0) + 2;
         }
-        return maxans;
+        maxans = max(maxans, dp[i]);
+      }
     }
+    return maxans;
+  }
 };
