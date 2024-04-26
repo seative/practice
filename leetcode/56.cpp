@@ -18,6 +18,7 @@
 
 using namespace std;
 
+// 看起来简单，实际上有点hard
 class Solution {
 public:
     vector<vector<int>> merge(vector<vector<int>>& intervals) {
