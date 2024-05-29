@@ -74,6 +74,22 @@ class Solution2 {
     }
     return res;
   }
+
+  vector<int> preorderTraversal(TreeNode *root) {
+    vector<int> res;
+    stack<TreeNode *> stk;
+
+    while (root != nullptr || !stk.empty()) {
+      while (root != nullptr) {
+        stk.push(root);
+        res.push_back(root->val);
+        root = root->left;
+      }
+      root = stk.top();
+      stk.pop();
+      root = root->right;
+    }
+  }
 };
 
 // Morris 中序遍历
