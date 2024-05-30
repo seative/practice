@@ -90,6 +90,29 @@ class Solution2 {
       root = root->right;
     }
   }
+
+  vector<int> postorderTraversal(TreeNode *root) {
+    vector<int> res;
+    stack<TreeNode *> stk;
+    TreeNode *pre;
+    while (root != nullptr || !stk.empty()) {
+      while (root != nullptr) {
+        stk.push(root);
+        root = root->left;
+      }
+      root = stk.top();
+      stk.pop();
+      if (root->right == nullptr || pre == root->right) {
+        res.push_back(root->val);
+        pre = root;
+        root = nullptr;
+      } else {
+        stk.push(root);
+        root = root->right;
+      }
+    }
+    return res;
+  }
 };
 
 // Morris 中序遍历
