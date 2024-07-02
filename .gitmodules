@@ -1,0 +1,3 @@
+[submodule "stl/stl-source-code-analysis"]
+	path = stl/stl-source-code-analysis
+	url = https://gitee.com/quicksands/stl-source-code-analysis.git
