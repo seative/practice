@@ -17,9 +17,8 @@
 using namespace std;
 
 class Solution {
-public:
+ public:
   string longestPalindrome(string s) {
-
     int maxLen = 0;
     int maxStart = 0;
     for (size_t i = 0, len = 1; i < s.size(); ++i) {
