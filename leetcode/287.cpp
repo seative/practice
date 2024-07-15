@@ -49,9 +49,10 @@ class Solution {
 class Solution2 {
  public:
   int findDuplicate(vector<int>& nums) {
-    int l = 0;
+    int l = 1;
     int r = nums.size() - 1;
-    while (l < r) {
+    int ans = -1;
+    while (l <= r) {
       int mid = (l + r) >> 1;
       int cnt = 0;
       for (int i = 0; i < nums.size(); ++i) {
@@ -63,9 +64,10 @@ class Solution2 {
         l = mid + 1;
       } else {
         r = mid - 1;
+        ans = mid;
       }
     }
-    return nums[l];
+    return ans;
   }
 };
 
