@@ -72,4 +72,28 @@ class Solution2 {
 };
 
 // 二进制
+
+class Solution3 {
+  int findDuplicate(vector<int>& nums) {
+    int n = nums.size();
+    int bit_max = 31;
+    while ((n - 1) & (1 << bit_max)) --bit_max;
+    int ans = 0;
+
+    for (int i = 0; i < bit_max; ++i) {
+      int x = 0;
+      int y = 0;
+      for (int j = 0; j < n; ++j) {
+        if (nums[j] & (1 << i)) x++;
+      }
+      for (int j = 0; j < n - 1; ++j) {
+        if (j & (1 << i)) y++;
+      }
+      if (x > y) {
+        ans |= 1 << i;
+      }
+    }
+    return ans;
+  }
+};
 // 环形链表
