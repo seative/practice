@@ -69,8 +69,6 @@ test/test-main/*
 *.plt
 *.eqn
 *.swp
-*.jpg
-*.png
 *.dib
 *.svg
 *.pptx
