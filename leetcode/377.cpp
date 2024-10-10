@@ -40,6 +40,7 @@ class Solution {
   }
 
   std::pair<int, int> dp(TreeNode *root) {
+    
     if (root == nullptr) return {0, 0};
     if (root->left == nullptr && root->right == nullptr) return {root->val, 0};
 
