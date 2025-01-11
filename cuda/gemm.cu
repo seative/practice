@@ -70,6 +70,54 @@ __global__ void matMul_shared(Matrix A, Matrix B, Matrix C) {
   }
 }
 
+const int BLOCK_SIZE_M=128;  // height of block of C that each  block calculate
+const int BLOCK_SIZE_K =8 ;// width of block of A that each  block load into shared memory
+const int BLOCK_SIZE_N=128;  // width of block of C that each  block calculate
+const int THREAD_SIZE_Y=8; // height of block of C that each thread calculate
+const int THREAD_SIZE_X=8;  // width of block of C that each thread calculate
+const bool ENABLE_DOUBLE_BUFFER=0; // whether enable double buffering or not
+
+
+__global__ void matMul_register(Matrix A,Matrix B,Matrix C)
+{
+  __shared__ float As[BLOCK_SIZE_M][BLOCK_SIZE_K];
+  __shared__ float Bs[BLOCK_SIZE_K][BLOCK_SIZE_N];
+
+  int bx=blockIdx.x;
+  int by=blockIdx.y;
+
+  int tx=threadIdx.x;
+  int ty=threadIdx.y;
+  int tid=ty*blockDim.x+tx;
+  int tNum=BLOCK_SIZE_M*BLOCK_SIZE_K/(blockDim.x*blockDim.y); 
+
+  int stride= BLOCK_SIZE_M/tNum;
+
+  // tNum/8
+
+  float Cvalue = 0;
+  for(int k=0;k< A.width/BLOCK_SIZE_K;++k)
+  {
+    int aCol= tid % BLOCK_SIZE_K+ k * BLOCK_SIZE_K;
+    int aRow= tid / BLOCK_SIZE_K+ by * BLOCK_SIZE_M;
+
+    int bRow= tid % BLOCK_SIZE_K+ k * BLOCK_SIZE_K;
+    int bCol= tid / BLOCK_SIZE_K+ bx * BLOCK_SIZE_N;
+
+    for(int i=0;i<tNum;++i)
+    {
+      As[tid/BLOCK_SIZE_K+i*stride][tid%BLOCK_SIZE_K]= A.elements[(aRow+i*stride) * A.width + aCol];
+      Bs[tid%BLOCK_SIZE_K][tid/BLOCK_SIZE_K+i*stride]= B.elements[(bRow+i*stride) * B.width + bCol];
+    }
+    __syncthreads();
+    for (int k = 0; k < BLOCK_SIZE; ++k) 
+    {
+      Cvalue += As[ty][k] * Bs[k][tx];
+    }
+    __syncthreads();
+  }
+}
+
 void matMul(const Matrix d_A, const Matrix d_B, Matrix d_C) {
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
