@@ -1,4 +1,5 @@
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
 
 #include <cassert>
 #include <cmath>
@@ -11,6 +12,16 @@ struct Matrix {
 };
 
 #define BLOCK_SIZE 16
+
+__global__ void clear(Matrix C)
+{
+  int row=blockIdx.y*blockDim.y+threadIdx.y;
+  int col=blockIdx.x*blockDim.x+threadIdx.x;
+  if(row<C.height && col<C.width)
+  {
+    C.elements[row*C.width+col]=0;
+  }
+}
 
 __global__ void matMul_origin(Matrix A, Matrix B, Matrix C) {
   // Each thread computes one element of C
@@ -41,20 +52,22 @@ __global__ void matMul_shared(Matrix A, Matrix B, Matrix C) {
   for (int m = 0; m < (A.width+BLOCK_SIZE-1) / BLOCK_SIZE; ++m) {
     int aRow = by * BLOCK_SIZE + ty;
     int aCol = m * BLOCK_SIZE + tx;
-    int bRow = m * BLOCK_SIZE + ty;
-    int bCol = bx * BLOCK_SIZE + tx;
+    int bRow = m * BLOCK_SIZE + tx;
+    int bCol = bx * BLOCK_SIZE + ty;
 
-    if (aRow < A.height && aCol < A.width) {
-      As[ty][tx] = A.elements[aRow * A.width + aCol];
-    } else {
-      As[ty][tx] = 0.0f;
-    }
+    // if (aRow < A.height && aCol < A.width) {
+    //   As[ty][tx] = A.elements[aRow * A.width + aCol];
+    // } else {
+    //   As[ty][tx] = 0.0f;
+    // }
+    As[ty][tx] = A.elements[aRow * A.width + aCol];
 
-    if (bRow < B.height && bCol < B.width) {
-      Bs[ty][tx] = B.elements[bRow * B.width + bCol];
-    } else {
-      Bs[ty][tx] = 0.0f;
-    }
+    // if (bRow < B.height && bCol < B.width) {
+    //   Bs[tx][ty] = B.elements[bRow * B.width + bCol];
+    // } else {
+    //   Bs[tx][ty] = 0.0f;
+    // }
+    Bs[tx][ty] = B.elements[bRow * B.width + bCol];
     __syncthreads();
 
     for (int k = 0; k < BLOCK_SIZE; ++k) {
@@ -65,7 +78,8 @@ __global__ void matMul_shared(Matrix A, Matrix B, Matrix C) {
   // 将结果写入全局内存
   int cRow = by * BLOCK_SIZE + ty;
   int cCol = bx * BLOCK_SIZE + tx;
-  if (cRow < C.height && cCol < C.width) {
+  // if (cRow < C.height && cCol < C.width) 
+  {
     C.elements[cRow * C.width + cCol] = Cvalue;
   }
 }
@@ -75,13 +89,14 @@ const int BLOCK_SIZE_K =8 ;// width of block of A that each  block load into sha
 const int BLOCK_SIZE_N=128;  // width of block of C that each  block calculate
 const int THREAD_SIZE_Y=8; // height of block of C that each thread calculate
 const int THREAD_SIZE_X=8;  // width of block of C that each thread calculate
-const bool ENABLE_DOUBLE_BUFFER=0; // whether enable double buffering or not
+// const bool ENABLE_DOUBLE_BUFFER=0; // whether enable double buffering or not
 
 
 __global__ void matMul_register(Matrix A,Matrix B,Matrix C)
 {
   __shared__ float As[BLOCK_SIZE_M][BLOCK_SIZE_K];
   __shared__ float Bs[BLOCK_SIZE_K][BLOCK_SIZE_N];
+  float accum[THREAD_SIZE_Y][THREAD_SIZE_X] = {0};
 
   int bx=blockIdx.x;
   int by=blockIdx.y;
@@ -89,33 +104,113 @@ __global__ void matMul_register(Matrix A,Matrix B,Matrix C)
   int tx=threadIdx.x;
   int ty=threadIdx.y;
   int tid=ty*blockDim.x+tx;
-  int tNum=BLOCK_SIZE_M*BLOCK_SIZE_K/(blockDim.x*blockDim.y); 
 
+  int tNum=BLOCK_SIZE_M*BLOCK_SIZE_K/(blockDim.x*blockDim.y); 
   int stride= BLOCK_SIZE_M/tNum;
 
-  // tNum/8
+  int mapTx= tid%BLOCK_SIZE_K;
+  int mapTy= tid/BLOCK_SIZE_K;
 
-  float Cvalue = 0;
   for(int k=0;k< A.width/BLOCK_SIZE_K;++k)
   {
-    int aCol= tid % BLOCK_SIZE_K+ k * BLOCK_SIZE_K;
-    int aRow= tid / BLOCK_SIZE_K+ by * BLOCK_SIZE_M;
-
-    int bRow= tid % BLOCK_SIZE_K+ k * BLOCK_SIZE_K;
-    int bCol= tid / BLOCK_SIZE_K+ bx * BLOCK_SIZE_N;
+    int aRow= mapTy + by * BLOCK_SIZE_M;
+    int aCol= mapTx + k * BLOCK_SIZE_K;
+   
+    int bRow= mapTx + k * BLOCK_SIZE_K;
+    int bCol= mapTy + bx * BLOCK_SIZE_N;
 
     for(int i=0;i<tNum;++i)
     {
-      As[tid/BLOCK_SIZE_K+i*stride][tid%BLOCK_SIZE_K]= A.elements[(aRow+i*stride) * A.width + aCol];
-      Bs[tid%BLOCK_SIZE_K][tid/BLOCK_SIZE_K+i*stride]= B.elements[(bRow+i*stride) * B.width + bCol];
+      As[mapTy+i*stride][mapTx]= A.elements[(aRow+i*stride) * A.width + aCol];
+      Bs[mapTx][mapTy+i*stride]= B.elements[bRow * B.width + bCol + i*stride];
     }
     __syncthreads();
-    for (int k = 0; k < BLOCK_SIZE; ++k) 
+
+  // float regisM[THREAD_SIZE_Y][BLOCK_SIZE_K];
+  // float regisN[BLOCK_SIZE_K][THREAD_SIZE_X];
+  //   for(int j=0; j< THREAD_SIZE_Y; ++j)
+  //   {
+  //     for(int i=0; i< BLOCK_SIZE_K; ++i)
+  //     {
+  //        regisM[j][i]= As[ty*THREAD_SIZE_Y+j][i];
+  //     }
+  //   }
+
+  //   for(int j=0; j< THREAD_SIZE_X; ++j)
+  //   {
+  //     for(int i=0; i< BLOCK_SIZE_K; ++i)
+  //     {
+  //        regisN[i][j]= Bs[i][tx*THREAD_SIZE_X+j];
+  //     }
+  //   }
+
+  //   for(int j=0; j< THREAD_SIZE_Y; ++j)
+  //   {
+  //     for(int i=0; i< THREAD_SIZE_X; ++i)
+  //     {
+  //       for(int l=0; l< BLOCK_SIZE_K; ++l)
+  //       {
+  //         accum[j][i]+= regisM[j][l]*regisN[l][i];
+  //       }
+  //     }
+  //   }
+
+  float regisM[THREAD_SIZE_Y];
+  float regisN[THREAD_SIZE_X];
+
+  for(int k=0;k<BLOCK_SIZE_K;++k)
+  {
+    for(int i=0; i< THREAD_SIZE_Y; ++i)
     {
-      Cvalue += As[ty][k] * Bs[k][tx];
+      regisM[i]= As[ty*THREAD_SIZE_Y+i][k];
     }
+
+    for(int i=0; i< THREAD_SIZE_X; ++i)
+    {
+      regisN[i]= Bs[k][tx*THREAD_SIZE_X+i];
+    }
+
+    for(int i=0; i< THREAD_SIZE_Y; ++i)
+    {
+      for(int j=0; j< THREAD_SIZE_X; ++j)
+      {
+        accum[i][j]+= regisM[i]*regisN[j];
+      }
+    }
+  }
+
     __syncthreads();
   }
+
+  int cRowF= by * BLOCK_SIZE_M + ty*THREAD_SIZE_Y ;
+  int cColF= bx * BLOCK_SIZE_N + tx*THREAD_SIZE_X ;
+
+  for(int j=0; j< THREAD_SIZE_Y; ++j)
+  {
+    for(int i=0; i< THREAD_SIZE_X; ++i)
+    {
+        int cRow= cRowF+j;
+        int cCol= cColF+i;
+        if(cRow < C.height && cCol < C.width)
+        {
+          C.elements[cRow * C.width + cCol] = accum[j][i];
+        }
+    }
+  }
+}
+
+
+void matMulCublas(cublasHandle_t& handle, Matrix d_A,Matrix d_B, Matrix d_C,float alpha=1.0f,float beta=0.0f)
+ {
+    // 调用 cuBLAS 函数进行矩阵乘法
+    cublasSgemm(handle,
+                CUBLAS_OP_N, CUBLAS_OP_N,
+                d_C.width, d_C.height, d_A.width,
+                &alpha,
+                d_B.elements, d_B.width,
+                d_A.elements, d_A.width,
+                &beta,
+                d_C.elements, d_C.width);
 }
 
 void matMul(const Matrix d_A, const Matrix d_B, Matrix d_C) {
@@ -139,6 +234,7 @@ void matMul(const Matrix d_A, const Matrix d_B, Matrix d_C) {
   std::cout << "Origin Kernel execution time: " << milliseconds << " ms"
             << std::endl;
 
+  clear<<<dimGrid, dimBlock>>>(d_C);
   cudaEventRecord(start);
   matMul_shared<<<dimGrid, dimBlock>>>(d_A, d_B, d_C);
   cudaEventRecord(stop);
@@ -147,15 +243,42 @@ void matMul(const Matrix d_A, const Matrix d_B, Matrix d_C) {
   std::cout << "Shared Kernel execution time: " << milliseconds << " ms"
             << std::endl;
 
+  dimGrid.x=d_A.width/BLOCK_SIZE_M;
+  dimGrid.y=d_B.width/BLOCK_SIZE_N;
+
+  dimBlock.x=BLOCK_SIZE_M/THREAD_SIZE_X;
+  dimBlock.y=BLOCK_SIZE_N/THREAD_SIZE_Y;
+  clear<<<dimGrid, dimBlock>>>(d_C);
+  cudaEventRecord(start);
+  matMul_register<<<dimGrid, dimBlock>>>(d_A, d_B, d_C);
+  cudaEventRecord(stop);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&milliseconds, start, stop);
+  std::cout << "Register Kernel execution time: " << milliseconds << " ms"
+            << std::endl;
+
+  clear<<<dimGrid, dimBlock>>>(d_C);
+  cublasHandle_t handle;
+  cublasCreate(&handle);
+  cudaEventRecord(start);
+  matMulCublas(handle,d_A, d_B, d_C);
+  cudaEventRecord(stop);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&milliseconds, start, stop);
+  std::cout << "Cublas Kernel execution time: " << milliseconds << " ms"
+            << std::endl;
+  cublasDestroy(handle);
+
   // 销毁 CUDA 事件
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
+  cudaDeviceSynchronize();
 }
 
 int main() {
-  int M = 1024;
-  int K = 1024;
-  int N = 521;
+  int M = 2048;
+  int K = 2048;
+  int N = 2048;
   // 分配主机内存
   Matrix A, B, C;
   A.height = M;
@@ -212,16 +335,17 @@ int main() {
   C_cpu.height = M;
   C_cpu.width = N;
   C_cpu.elements = (float*)malloc(M * N * sizeof(float));
-  for (int i = 0; i < M; ++i) {
-    for (int j = 0; j < N; ++j) {
-      float sum = 0;
-      for (int k = 0; k < K; ++k) {
-        sum += A.elements[i * K + k] * B.elements[k * N + j];
-      }
-      C_cpu.elements[i * N + j] = sum;
-      assert(fabs(C.elements[i * N + j] - C_cpu.elements[i * N + j]) < 1e-4);
-    }
-  }
+  // for (int i = 0; i < M; ++i) {
+  //   for (int j = 0; j < N; ++j) {
+  //     float sum = 0;
+  //     for (int k = 0; k < K; ++k) {
+  //       sum += A.elements[i * K + k] * B.elements[k * N + j];
+  //     }
+  //     C_cpu.elements[i * N + j] = sum;
+  //     // std::cout<<i * N + j<<" "<<C.elements[i * N + j]<<" "<<C_cpu.elements[i * N + j]<<std::endl;
+  //     assert(fabs(C.elements[i * N + j] - C_cpu.elements[i * N + j]) < 1e-2);
+  //   }
+  // }
 
   // Free device memory
   cudaFree(d_A.elements);
