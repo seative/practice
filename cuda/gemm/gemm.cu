@@ -49,6 +49,7 @@ __global__ void matMul_shared(Matrix A, Matrix B, Matrix C) {
   int ty = threadIdx.y;
 
   float Cvalue = 0;
+
   for (int m = 0; m < (A.width+BLOCK_SIZE-1) / BLOCK_SIZE; ++m) {
     int aRow = by * BLOCK_SIZE + ty;
     int aCol = m * BLOCK_SIZE + tx;
