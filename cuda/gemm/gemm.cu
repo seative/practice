@@ -38,6 +38,53 @@ __global__ void matMul_origin(Matrix A, Matrix B, Matrix C) {
   }
 }
 
+__global__ void matMul_shared2(Matrix A, Matrix B, Matrix C) {
+  __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+
+  int bx = blockIdx.x;
+  int by = blockIdx.y;
+
+  int tx = threadIdx.x;
+  int ty = threadIdx.y;
+
+  float Cvalue = 0;
+
+  for (int m = 0; m < (A.width+BLOCK_SIZE-1) / BLOCK_SIZE; ++m) {
+    int aRow = by * BLOCK_SIZE + ty;
+    int aCol = m * BLOCK_SIZE + tx;
+    int bRow = m * BLOCK_SIZE + ty;
+    int bCol = bx * BLOCK_SIZE + tx;
+
+    // if (aRow < A.height && aCol < A.width) {
+    //   As[ty][tx] = A.elements[aRow * A.width + aCol];
+    // } else {
+    //   As[ty][tx] = 0.0f;
+    // }
+    As[ty][tx] = A.elements[aRow * A.width + aCol];
+
+    // if (bRow < B.height && bCol < B.width) {
+    //   Bs[tx][ty] = B.elements[bRow * B.width + bCol];
+    // } else {
+    //   Bs[tx][ty] = 0.0f;
+    // }
+    Bs[ty][tx] = B.elements[bRow * B.width + bCol];
+    __syncthreads();
+
+    for (int k = 0; k < BLOCK_SIZE; ++k) {
+      Cvalue += As[ty][k] * Bs[k][tx];
+    }
+    __syncthreads();
+  }
+  // 将结果写入全局内存
+  int cRow = by * BLOCK_SIZE + ty;
+  int cCol = bx * BLOCK_SIZE + tx;
+  // if (cRow < C.height && cCol < C.width) 
+  {
+    C.elements[cRow * C.width + cCol] = Cvalue;
+  }
+}
+
 __global__ void matMul_shared(Matrix A, Matrix B, Matrix C) {
   __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
   __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
@@ -244,6 +291,15 @@ void matMul(const Matrix d_A, const Matrix d_B, Matrix d_C) {
   std::cout << "Shared Kernel execution time: " << milliseconds << " ms"
             << std::endl;
 
+  clear<<<dimGrid, dimBlock>>>(d_C);
+  cudaEventRecord(start);
+  matMul_shared2<<<dimGrid, dimBlock>>>(d_A, d_B, d_C);
+  cudaEventRecord(stop);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&milliseconds, start, stop);
+  std::cout << "Shared2 Kernel execution time: " << milliseconds << " ms"
+            << std::endl;
+
   dimGrid.x=d_A.width/BLOCK_SIZE_M;
   dimGrid.y=d_B.width/BLOCK_SIZE_N;
 
@@ -336,17 +392,17 @@ int main() {
   C_cpu.height = M;
   C_cpu.width = N;
   C_cpu.elements = (float*)malloc(M * N * sizeof(float));
-  // for (int i = 0; i < M; ++i) {
-  //   for (int j = 0; j < N; ++j) {
-  //     float sum = 0;
-  //     for (int k = 0; k < K; ++k) {
-  //       sum += A.elements[i * K + k] * B.elements[k * N + j];
-  //     }
-  //     C_cpu.elements[i * N + j] = sum;
-  //     // std::cout<<i * N + j<<" "<<C.elements[i * N + j]<<" "<<C_cpu.elements[i * N + j]<<std::endl;
-  //     assert(fabs(C.elements[i * N + j] - C_cpu.elements[i * N + j]) < 1e-2);
-  //   }
-  // }
+  for (int i = 0; i < M; ++i) {
+    for (int j = 0; j < N; ++j) {
+      float sum = 0;
+      for (int k = 0; k < K; ++k) {
+        sum += A.elements[i * K + k] * B.elements[k * N + j];
+      }
+      C_cpu.elements[i * N + j] = sum;
+      // std::cout<<i * N + j<<" "<<C.elements[i * N + j]<<" "<<C_cpu.elements[i * N + j]<<std::endl;
+      assert(fabs(C.elements[i * N + j] - C_cpu.elements[i * N + j]) < 1e-2);
+    }
+  }
 
   // Free device memory
   cudaFree(d_A.elements);

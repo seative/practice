@@ -1,3 +1,8 @@
+# Ingore executable files
+*
+!*/
+!*.*
+
 # Prerequisites
 *.d
 
@@ -337,3 +342,6 @@ include/gitInfo.h
 
 # exclude from ignored files
 !CMakeLists.txt
+
+# Ignore nsight profile files
+*.ncu-rep
